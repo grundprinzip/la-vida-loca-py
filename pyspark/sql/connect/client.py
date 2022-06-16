@@ -4,6 +4,7 @@ import pyspark.sql.connect.proto.spark_connect_pb2 as pb2
 # Async IO
 #import grpc
 import asyncio
+import io
 from grpclib.client import Channel
 
 import pyarrow as pa
@@ -140,14 +141,16 @@ class RemoteSparkSession(object):
             if b.metrics is not None:
                 m = b.metrics
 
-            if b.batch is not None and len(b.batch.data) > 0:
-                batches.append(b.batch)
+            if b.csv_batch is not None and len(b.csv_batch.data) > 0:
+                batches.append(io.StringIO(b.csv_batch.data))
 
         # Convert the arrow batches to pandas
         result_dfs = []
         for b in batches:
-            with pa.ipc.open_stream(b.data) as rd:
-                result_dfs.append(rd.read_pandas())
+
+            result_dfs.append(pd.read_csv(b, delimiter="|"))
+            #with pa.ipc.open_stream(b.data) as rd:
+            #    result_dfs.append(rd.read_pandas())
 
         if len(result_dfs) > 0:
             df = pd.concat(result_dfs)
