@@ -100,12 +100,15 @@ class RemoteSparkSession(object):
         fun.parts.append(name)
         fun.serialized_function = cloudpickle.dumps((function, return_type))
 
+        print(fun)
+
         req = pb2.Request()
         req.user_context.user_id = self._user_id
         req.plan.command.create_function.CopyFrom(fun)
 
-        for b in self._stub.ExecutePlan(req):
-            print(b)
+        coro = self._execute_and_fetch(req)
+        res = asyncio.get_event_loop().run_until_complete(coro)
+
         return name
 
     def _build_metrics(self, metrics: pb2.Response.Metrics):
