@@ -2,6 +2,10 @@ from setuptools import setup
 
 setup(
     name='la-vida-local',
-    version='1.0',
-    packages=['.pyspark', '.pyspark.sql', '.pyspark.sql.connect', '.pyspark.sql.connect.proto'],
+    version='1.1',
+    packages=['pyspark',
+      'pyspark.cloudpickle',
+      'pyspark.sql',
+      'pyspark.sql.connect',
+      'pyspark.sql.connect.proto'],
 )
