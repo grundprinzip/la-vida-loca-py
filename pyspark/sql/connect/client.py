@@ -7,7 +7,7 @@ import asyncio
 import io
 from grpclib.client import Channel
 
-import pyarrow as pa
+# import pyarrow as pa
 import pandas as pd
 
 import pyspark.sql.types
