@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='la-vida-local',
-    version='1.1',
+    version='1.3',
     packages=['pyspark',
       'pyspark.cloudpickle',
       'pyspark.sql',

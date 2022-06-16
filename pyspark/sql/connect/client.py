@@ -2,7 +2,7 @@ import pyspark.sql.connect.proto.spark_connect_grpc as grpc_lib
 import pyspark.sql.connect.proto.spark_connect_pb2 as pb2
 
 # Async IO
-import grpc
+#import grpc
 import asyncio
 from grpclib.client import Channel
 
@@ -128,7 +128,10 @@ class RemoteSparkSession(object):
         req = pb2.Request()
         req.user_context.user_id = self._user_id
         req.plan.CopyFrom(plan)
-        return self._execute_and_fetch(req)
+        coro = self._execute_and_fetch(req)
+        res = asyncio.get_event_loop().run_until_complete(coro)
+        return res
+
 
     async def _execute_and_fetch(self, req: pb2.Request):
         m = None
