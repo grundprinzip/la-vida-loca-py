@@ -1,14 +1,24 @@
-import pyspark.sql.connect.proto.spark_connect_grpc as grpc_lib
+
 import pyspark.sql.connect.proto.spark_connect_pb2 as pb2
 
-# Async IO
-#import grpc
-import asyncio
-import io
-from grpclib.client import Channel
+# Depending on the platform we have different libraries available
+# to perform the operations.
+try:
+    import grpc
+    import pyspark.sql.connect.proto.spark_connect_pb2_grpc as grpc_lib
+    use_async_io = False
+except:
+    import asyncio
+    from grpclib.client import Channel
+    import pyspark.sql.connect.proto.spark_connect_grpc as grpc_lib
+    use_async_io = True
 
-# import pyarrow as pa
+import pyarrow as pa
 import pandas as pd
+import io
+
+import requests
+
 
 import pyspark.sql.types
 from pyspark.sql.connect.data_frame import DataFrame
@@ -18,6 +28,12 @@ from pyspark.sql.connect.plan import Read, Sql
 import cloudpickle
 import uuid
 
+class BearerAuth(requests.auth.AuthBase):
+    def __init__(self, token):
+        self.token = token
+    def __call__(self, r):
+        r.headers["authorization"] = "Bearer " + self.token
+        return r
 
 class Data:
     def __init__(self, schema, data):
@@ -80,13 +96,20 @@ class PlanMetrics:
 class RemoteSparkSession(object):
     """Conceptually the remote spark session that communicates with the server"""
 
-    def __init__(self, host="localhost", port=5001, user_id="Martin"):
+    def __init__(self, http_path=None, host=None, port=15001, user_id="Martin", token=None):
         self._host = host
         self._port = port
         self._user_id = user_id
-        #self._channel = grpc.insecure_channel(f"{self._host}:{self._port}")
-        self._channel = Channel(f"{self._host}", self._port)
-        self._stub = grpc_lib.SparkConnectServiceStub(self._channel)
+        self._http_path = http_path
+        self._token = token
+        if http_path is None:
+            if not use_async_io:
+                self._channel = grpc.insecure_channel(f"{self._host}:{self._port}")
+            else:
+                self._channel = Channel(f"{self._host}", self._port)
+            self._stub = grpc_lib.SparkConnectServiceStub(self._channel)
+        else:
+            assert not token is None
 
     def readTable(self, tableName: str) -> "DataFrame":
         df = DataFrame.withPlan(Read(tableName), self)
@@ -100,14 +123,13 @@ class RemoteSparkSession(object):
         fun.parts.append(name)
         fun.serialized_function = cloudpickle.dumps((function, return_type))
 
-        print(fun)
-
         req = pb2.Request()
         req.user_context.user_id = self._user_id
         req.plan.command.create_function.CopyFrom(fun)
 
-        coro = self._execute_and_fetch(req)
-        res = asyncio.get_event_loop().run_until_complete(coro)
+        result = self._execute_and_fetch(req)
+        if use_async_io:
+            asyncio.get_event_loop().run_until_complete(result)
 
         return name
 
@@ -132,28 +154,60 @@ class RemoteSparkSession(object):
         req = pb2.Request()
         req.user_context.user_id = self._user_id
         req.plan.CopyFrom(plan)
-        coro = self._execute_and_fetch(req)
-        res = asyncio.get_event_loop().run_until_complete(coro)
-        return res
+        if not self._http_path:
+            if not use_async_io:
+                return self._execute_and_fetch(req)
+            else:
+                # When async IO is used, the result is actually a coroutine that needs
+                # to be awaited.
+                coro = self._execute_and_fetch_async(req)
+                return asyncio.get_event_loop().run_until_complete(coro)
+        else:
+            result = self._execute_and_fetch_http(req)
+        return result
+
+    def _process_batch(self, b):
+        if b.batch is not None and len(b.batch.data) > 0:
+            with pa.ipc.open_stream(b.data) as rd:
+                return rd.read_pandas()
+        elif b.csv_batch is not None and len(b.csv_batch.data) > 0:
+            return pd.read_csv(io.StringIO(b.csv_batch.data), delimiter="|")
 
 
-    async def _execute_and_fetch(self, req: pb2.Request):
+    def _execute_and_fetch_http(self, req: pb2.Request):
+        r = requests.post(self._http_path, data=req.SerializeToString(), auth=BearerAuth(self._token))
+        if r.status_code != 200:
+            raise RuntimeError(r.content)
+        resp = pb2.Response.FromString(r.content)
+        pdf = self._process_batch(resp)
+        pdf.attrs["metrics"] = self._build_metrics(resp.metrics)
+        return pdf
+
+    async def _execute_and_fetch_async(self, req: pb2.Request):
         m = None
-        batches = []
+        result_dfs = []
         for b in await self._stub.ExecutePlan(req):
             if b.metrics is not None:
                 m = b.metrics
 
-            if b.csv_batch is not None and len(b.csv_batch.data) > 0:
-                batches.append(io.StringIO(b.csv_batch.data))
+            result_dfs.append(self._process_batch(b))
 
-        # Convert the arrow batches to pandas
+        if len(result_dfs) > 0:
+            df = pd.concat(result_dfs)
+            # Attach the metrics to the DataFrame attributes.
+            df.attrs["metrics"] = self._build_metrics(m)
+            return df
+        else:
+            return None
+
+    def _execute_and_fetch(self, req: pb2.Request):
+        m = None
         result_dfs = []
-        for b in batches:
 
-            result_dfs.append(pd.read_csv(b, delimiter="|"))
-            #with pa.ipc.open_stream(b.data) as rd:
-            #    result_dfs.append(rd.read_pandas())
+        for b in self._stub.ExecutePlan(req):
+            if b.metrics is not None:
+                m = b.metrics
+            result_dfs.append(self._process_batch(b))
 
         if len(result_dfs) > 0:
             df = pd.concat(result_dfs)
