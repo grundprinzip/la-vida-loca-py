@@ -13,7 +13,11 @@ except:
     import pyspark.sql.connect.proto.spark_connect_grpc as grpc_lib
     use_async_io = True
 
-import pyarrow as pa
+try:
+    import pyarrow as pa
+except:
+    pass
+
 import pandas as pd
 import io
 
