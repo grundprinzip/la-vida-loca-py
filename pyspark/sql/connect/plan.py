@@ -312,7 +312,7 @@ class Aggregate(LogicalPlan):
 
         gs = proto.Aggregate.GroupingSet()
         gs.aggregate_expressions.extend(groupings)
-        agg.grouping_sets.append(gs)
+        agg.aggregate.grouping_sets.append(gs)
         return agg
 
     def print(self, indent=0) -> str:

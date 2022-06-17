@@ -52,7 +52,8 @@ class GroupingFrame(object):
                 child=self._df._plan,
                 grouping_cols=self._grouping_cols,
                 measures=measures,
-            )
+            ),
+            session=self._df._session
         )
         return res
 
