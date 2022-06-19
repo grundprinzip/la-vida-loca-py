@@ -2,13 +2,15 @@ from setuptools import setup
 
 setup(
     name='la-vida-local',
-    version='1.5.2',
+    version='1.5.3',
     install_requires = [
       'cloudpickle==1.6.0',
       'protobuf',
-      'grpclib',
       'requests',
     ],
+    extras_require = {
+      "grpc": ["grpclib", "pyarrow", "grpcio"]
+    },
     packages=[
       'pyspark',
       'pyspark.cloudpickle',

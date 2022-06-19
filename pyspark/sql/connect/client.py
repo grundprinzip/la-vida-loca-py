@@ -4,14 +4,18 @@ import pyspark.sql.connect.proto.spark_connect_pb2 as pb2
 # Depending on the platform we have different libraries available
 # to perform the operations.
 try:
-    import grpc
-    import pyspark.sql.connect.proto.spark_connect_pb2_grpc as grpc_lib
-    use_async_io = False
+    try:
+        import grpc
+        import pyspark.sql.connect.proto.spark_connect_pb2_grpc as grpc_lib
+        use_async_io = False
+    except:
+        import asyncio
+        from grpclib.client import Channel
+        import pyspark.sql.connect.proto.spark_connect_grpc as grpc_lib
+        use_async_io = True
+    use_grpc = True
 except:
-    import asyncio
-    from grpclib.client import Channel
-    import pyspark.sql.connect.proto.spark_connect_grpc as grpc_lib
-    use_async_io = True
+    use_grpc = False
 
 try:
     import pyarrow as pa
@@ -107,6 +111,7 @@ class RemoteSparkSession(object):
         self._http_path = http_path
         self._token = token
         if http_path is None:
+            assert use_grpc
             if not use_async_io:
                 self._channel = grpc.insecure_channel(f"{self._host}:{self._port}")
             else:
