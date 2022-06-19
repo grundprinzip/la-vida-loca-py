@@ -90,7 +90,7 @@ class Read(LogicalPlan):
 
     def plan(self, session: "RemoteSparkSession") -> proto.Relation:
         plan = proto.Relation()
-        plan.read.named_table.parts.append(self.table_name)
+        plan.read.named_table.parts.extend(self.table_name.split("."))
         return plan
 
     def print(self, indent=0) -> str:
