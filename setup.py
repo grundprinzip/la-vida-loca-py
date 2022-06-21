@@ -4,7 +4,7 @@ setup(
     name='la-vida-local',
     version='1.5.5',
     install_requires = [
-      'cloudpickle==1.6.0',
+      #'cloudpickle==1.6.0',
       #'protobuf',
       #'requests',
     ],
