@@ -71,7 +71,6 @@ class UserDefinedFunction(Expression):
         # Func name is used for the actual reference
         return _build(func_name, *self._args).to_plan(session)
 
-
     def __str__(self):
         return f"UserDefinedFunction({self._func_name})"
 

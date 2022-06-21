@@ -1,4 +1,3 @@
-
 import pyspark.sql.connect.proto.spark_connect_pb2 as pb2
 
 # Depending on the platform we have different libraries available
@@ -7,11 +6,13 @@ try:
     try:
         import grpc
         import pyspark.sql.connect.proto.spark_connect_pb2_grpc as grpc_lib
+
         use_async_io = False
     except:
         import asyncio
         from grpclib.client import Channel
         import pyspark.sql.connect.proto.spark_connect_grpc as grpc_lib
+
         use_async_io = True
     use_grpc = True
 except:
@@ -36,12 +37,15 @@ from pyspark.sql.connect.plan import Read, Sql
 import cloudpickle
 import uuid
 
+
 class BearerAuth(requests.auth.AuthBase):
     def __init__(self, token):
         self.token = token
+
     def __call__(self, r):
         r.headers["authorization"] = "Bearer " + self.token
         return r
+
 
 class Data:
     def __init__(self, schema, data):
@@ -104,7 +108,9 @@ class PlanMetrics:
 class RemoteSparkSession(object):
     """Conceptually the remote spark session that communicates with the server"""
 
-    def __init__(self, http_path=None, host=None, port=15001, user_id="Martin", token=None):
+    def __init__(
+        self, http_path=None, host=None, port=15001, user_id="Martin", token=None
+    ):
         self._host = host
         self._port = port
         self._user_id = user_id
@@ -182,9 +188,10 @@ class RemoteSparkSession(object):
         elif b.csv_batch is not None and len(b.csv_batch.data) > 0:
             return pd.read_csv(io.StringIO(b.csv_batch.data), delimiter="|")
 
-
     def _execute_and_fetch_http(self, req: pb2.Request):
-        r = requests.post(self._http_path, data=req.SerializeToString(), auth=BearerAuth(self._token))
+        r = requests.post(
+            self._http_path, data=req.SerializeToString(), auth=BearerAuth(self._token)
+        )
         if r.status_code != 200:
             raise RuntimeError(r.content)
         resp = pb2.Response.FromString(r.content)

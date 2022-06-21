@@ -53,7 +53,7 @@ class GroupingFrame(object):
                 grouping_cols=self._grouping_cols,
                 measures=measures,
             ),
-            session=self._df._session
+            session=self._df._session,
         )
         return res
 
@@ -126,14 +126,14 @@ class DataFrame(object):
         if self._plan is None:
             return []
         if not "columns" in self._cache and self._plan is not None:
-            self._cache["columns"] = LakehouseEngine.schema(
-                self._plan.collect(schema=True)
-            )
+            pdd = self.limit(0).collect()
+            # Translate to standard pytho array
+            self._cache["columns"] = pdd.columns.values
         return self._cache["columns"]
 
     def count(self):
         """Returns the number of rows in the data frame"""
-        return int(self.agg({"*": "count"}).collect()[0])
+        return self.agg([(LiteralExpression(1), "count")]).collect().iloc[0, 0]
 
     def crossJoin(self, other):
         ...
@@ -241,24 +241,3 @@ class DataFrame(object):
         #     query = self._plan.collect(explain=True)
         #     return LakehouseEngine.excecute(query)[0][0]
         return ""
-
-
-def _test() -> None:
-    import doctest
-    import sys
-
-    globs = {}
-    globs["df"] = DataFrame([["a", 1], ["b", 2]], ["name", "value"])
-    (failure_count, test_count) = doctest.testmod(
-        lakehouse.api.data_frame,
-        globs=globs,
-        optionflags=doctest.ELLIPSIS
-        | doctest.NORMALIZE_WHITESPACE
-        | doctest.REPORT_NDIFF,
-    )
-    if failure_count:
-        sys.exit(-1)
-
-
-if __name__ == "__main__":
-    _test()

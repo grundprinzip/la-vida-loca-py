@@ -416,7 +416,6 @@ class Sql(LogicalPlan):
         rel.sql.query = self._query
         return rel
 
-
     def _repr_html_(self) -> str:
         return f"""
         <ul>
