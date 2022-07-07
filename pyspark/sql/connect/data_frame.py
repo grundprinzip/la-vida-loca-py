@@ -121,6 +121,7 @@ class DataFrame(object):
         # TODO needs analysis to pick the right column
         ...
 
+    @property
     def columns(self) -> List[str]:
         """Returns the list of columns of the current data frame."""
         if self._plan is None:

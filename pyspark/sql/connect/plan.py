@@ -416,6 +416,11 @@ class Sql(LogicalPlan):
         rel.sql.query = self._query
         return rel
 
+    def print(self, indent=0) -> str:
+        i = self._i(indent)
+        sub_query = self._query.replace("\n", "")[:50]
+        return f"""{i}<SQL query='{sub_query}...'>"""
+
     def _repr_html_(self) -> str:
         return f"""
         <ul>

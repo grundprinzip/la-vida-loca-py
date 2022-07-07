@@ -2,7 +2,7 @@ from setuptools import setup
 
 setup(
     name='la-vida-local',
-    version='1.5.8',
+    version='1.5.10',
     install_requires = [
       #'cloudpickle==1.6.0',
       #'protobuf',
