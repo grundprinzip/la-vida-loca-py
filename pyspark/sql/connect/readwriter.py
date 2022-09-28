@@ -15,10 +15,14 @@
 # limitations under the License.
 #
 
-from pyspark.sql.connect.proto.base_pb2_grpc import *
-from pyspark.sql.connect.proto.base_pb2 import *
-from pyspark.sql.connect.proto.types_pb2 import *
-from pyspark.sql.connect.proto.commands_pb2 import *
-from pyspark.sql.connect.proto.expressions_pb2 import *
-from pyspark.sql.connect.proto.relations_pb2 import *
-from pyspark.sql.connect.proto.ml_pb2 import *
+from pyspark.sql.connect.data_frame import DataFrame
+from pyspark.sql.connect.plan import Read
+
+
+class DataFrameReader:
+    def __init__(self, client):
+        self._client = client
+
+    def table(self, tableName: str) -> "DataFrame":
+        df = DataFrame.withPlan(Read(tableName), self._client)
+        return df

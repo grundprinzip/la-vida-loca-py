@@ -1,6 +1,23 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 from typing import List, Union, cast, get_args, TYPE_CHECKING
 
-import pyspark.sql.connect.proto.spark_connect_pb2 as proto
+import pyspark.sql.connect.proto as proto
 
 PrimitiveType = Union[str, int, bool, float]
 ExpressionOrString = Union[str, "Expression"]
@@ -8,6 +25,7 @@ ColumnOrString = Union[str, "ColumnRef"]
 
 if TYPE_CHECKING:
     from pyspark.sql.connect.client import RemoteSparkSession
+    import pyspark.sql.connect.proto as proto
 
 
 class Expression(object):
@@ -18,7 +36,7 @@ class Expression(object):
     def __init__(self) -> None:  # type: ignore[name-defined]
         pass
 
-    def to_plan(self, session: "RemoteSparkSession") -> proto.Expression:
+    def to_plan(self, session: "RemoteSparkSession") -> "proto.Expression":  # type: ignore
         ...
 
     def __str__(self) -> str:
@@ -26,14 +44,20 @@ class Expression(object):
 
 
 class LiteralExpression(Expression):
+    """A literal expression.
+
+    The Python types are converted best effort into the relevant proto types. On the Spark Connect
+    server side, the proto types are converted to the Catalyst equivalents."""
+
     def __init__(self, value: PrimitiveType) -> None:  # type: ignore[name-defined]
         super().__init__()
         self._value = value
 
-    def to_plan(self, session: "RemoteSparkSession") -> proto.Expression:
+    def to_plan(self, session: "RemoteSparkSession") -> "proto.Expression":
         """Converts the literal expression to the literal in proto.
 
-        TODO This method always assumes the largest type and can thus create weird interpretations of the literal."""
+        TODO This method always assumes the largest type and can thus
+             create weird interpretations of the literal."""
         value_type = type(self._value)
         exp = proto.Expression()
         if value_type is int:
@@ -75,7 +99,7 @@ class ColumnRef(Expression):
 
     def __init__(self, *parts: str) -> None:  # type: ignore[name-defined]
         super().__init__()
-        self._parts: List[str] = list(filter(lambda x: not x is None, list(parts)))
+        self._parts: List[str] = list(filter(lambda x: x is not None, list(parts)))
 
     def name(self) -> str:
         """Returns the qualified name of the column reference."""
@@ -96,8 +120,6 @@ class ColumnRef(Expression):
     __rtruediv__ = _bin_op("divide", reverse=True)
     __pow__ = _bin_op("pow")
     __rpow__ = _bin_op("pow", reverse=True)
-    # __lt__ = _bin_op("less")
-    # __gt__ = _bin_op("greater")
     __ge__ = _bin_op("greterEquals")
     __le__ = _bin_op("lessEquals")
 
@@ -152,9 +174,7 @@ class ScalarFunctionExpression(Expression):
     def to_plan(self, session: "RemoteSparkSession") -> proto.Expression:
         fun = proto.Expression()
         fun.unresolved_function.parts.append(self._op)
-        fun.unresolved_function.arguments.extend(
-            [x.to_plan(session) for x in self._args]
-        )
+        fun.unresolved_function.arguments.extend([x.to_plan(session) for x in self._args])
         return fun
 
     def __str__(self) -> str:

@@ -1,3 +1,20 @@
+#
+# Licensed to the Apache Software Foundation (ASF) under one or more
+# contributor license agreements.  See the NOTICE file distributed with
+# this work for additional information regarding copyright ownership.
+# The ASF licenses this file to You under the Apache License, Version 2.0
+# (the "License"); you may not use this file except in compliance with
+# the License.  You may obtain a copy of the License at
+#
+#    http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+#
+
 from typing import (
     Any,
     Dict,
@@ -33,9 +50,7 @@ class GroupingFrame(object):
 
     def __init__(self, df: "DataFrame", *grouping_cols: Union[ColumnRef, str]) -> None:
         self._df = df
-        self._grouping_cols = [
-            x if isinstance(x, ColumnRef) else df[x] for x in grouping_cols
-        ]
+        self._grouping_cols = [x if isinstance(x, ColumnRef) else df[x] for x in grouping_cols]
 
     def agg(self, exprs: MeasuresType = None) -> "DataFrame":
 
@@ -57,12 +72,8 @@ class GroupingFrame(object):
         )
         return res
 
-    def _map_cols_to_dict(
-        self, fun: str, cols: List[Union[ColumnRef, str]]
-    ) -> Dict[str, str]:
-        return {
-            x if isinstance(x, str) else cast(ColumnRef, x).name(): fun for x in cols
-        }
+    def _map_cols_to_dict(self, fun: str, cols: List[Union[ColumnRef, str]]) -> Dict[str, str]:
+        return {x if isinstance(x, str) else cast(ColumnRef, x).name(): fun for x in cols}
 
     def min(self, *cols: Union[ColumnRef, str]) -> "DataFrame":
         expr = self._map_cols_to_dict("min", list(cols))
@@ -101,18 +112,14 @@ class DataFrame(object):
         new_frame._session = session
         return new_frame
 
-    def select(self, *cols: ColumnOrName) -> "DataFrame":
-        return DataFrame.withPlan(
-            plan.Project(self._plan, *cols), session=self._session
-        )
+    def select(self, *cols: ColumnRef) -> "DataFrame":
+        return DataFrame.withPlan(plan.Project(self._plan, *cols), session=self._session)
 
     def agg(self, exprs: Dict[str, str]) -> "DataFrame":
         return self.groupBy().agg(exprs)
 
     def alias(self, alias):
-        return DataFrame.withPlan(
-            plan.Project(self._plan).withAlias(alias), session=self._session
-        )
+        return DataFrame.withPlan(plan.Project(self._plan).withAlias(alias), session=self._session)
 
     def approxQuantile(self, col, probabilities, relativeError):
         ...
@@ -126,7 +133,7 @@ class DataFrame(object):
         """Returns the list of columns of the current data frame."""
         if self._plan is None:
             return []
-        if not "columns" in self._cache and self._plan is not None:
+        if "columns" not in self._cache and self._plan is not None:
             pdd = self.limit(0).collect()
             # Translate to standard pytho array
             self._cache["columns"] = pdd.columns.values
@@ -156,9 +163,7 @@ class DataFrame(object):
     def drop(self, *cols: ColumnOrString):
         # TODO Needs analyze to know which columns to drop
         all_cols = self.columns()
-        dropped = set(
-            [c.name() if isinstance(c, ColumnRef) else self[c].name() for c in cols]
-        )
+        dropped = set([c.name() if isinstance(c, ColumnRef) else self[c].name() for c in cols])
         filter(lambda x: x in dropped, all_cols)
 
     def filter(self, condition: Expression) -> "DataFrame":
@@ -183,17 +188,13 @@ class DataFrame(object):
         )
 
     def limit(self, n):
-        return DataFrame.withPlan(
-            plan.Limit(child=self._plan, limit=n), session=self._session
-        )
+        return DataFrame.withPlan(plan.Limit(child=self._plan, limit=n), session=self._session)
 
     def sort(self, *cols: ColumnOrName):
         """Sort by a specific column"""
         return DataFrame.withPlan(plan.Sort(self._plan, *cols), session=self._session)
 
-    def show(
-        self, n: int, truncate: Optional[Union[bool, int]], vertical: Optional[bool]
-    ):
+    def show(self, n: int, truncate: Optional[Union[bool, int]], vertical: Optional[bool]):
         ...
 
     def union(self, other) -> "DataFrame":
@@ -202,16 +203,14 @@ class DataFrame(object):
     def unionAll(self, other: "DataFrame") -> "DataFrame":
         if other._plan is None:
             raise ValueError("Argument to Union does not contain a valid plan.")
-        return DataFrame.withPlan(
-            plan.UnionAll(self._plan, other._plan), session=self._session
-        )
+        return DataFrame.withPlan(plan.UnionAll(self._plan, other._plan), session=self._session)
 
     def where(self, condition):
         return self.filter(condition)
 
     def _get_alias(self):
         p = self._plan
-        while not p is None:
+        while p is not None:
             if isinstance(p, plan.Project) and p.alias:
                 return p.alias
             p = p._child
@@ -238,7 +237,5 @@ class DataFrame(object):
         return self.collect()
 
     def explain(self) -> str:
-        # if self._plan:
-        #     query = self._plan.collect(explain=True)
-        #     return LakehouseEngine.excecute(query)[0][0]
-        return ""
+        query = self._plan.collect(self._session)
+        return self._session.analyze(query).explain_string
